@@ -6,6 +6,7 @@ from google.appengine.ext import ndb
 import logging
 import os.path
 import webapp2
+import urllib
 
 from webapp2_extras import auth
 from webapp2_extras import sessions
@@ -21,7 +22,8 @@ def user_required(handler):
   def check_login(self, *args, **kwargs):
     auth = self.auth
     if not auth.get_user_by_session():
-      self.redirect(self.uri_for('login'), abort=True)
+      params = { 'dest': str(self.request.uri)}
+      self.redirect(self.uri_for('login')+"?"+ urllib.urlencode(params), abort=True)
     else:
       return handler(self, *args, **kwargs)
 
@@ -242,16 +244,20 @@ class LoginHandler(BaseHandler):
     try:
       u = self.auth.get_user_by_password(username, password, remember=True,
         save_session=True)
-      self.redirect(self.uri_for('home'))
+      self.redirect(urllib.unquote(str(self.request.get('dest'))))
     except (InvalidAuthIdError, InvalidPasswordError) as e:
       logging.info('Login failed for user %s because of %s', username, type(e))
       self._serve_page(True)
 
   def _serve_page(self, failed=False):
     username = self.request.get('username')
+    dest = self.request.get('dest')
+    if not dest:
+      dest = self.uri_for('home')
     params = {
       'username': username,
-      'failed': failed
+      'failed': failed,
+      'dest': dest
     }
     self.render_template('login.html', params)
 
